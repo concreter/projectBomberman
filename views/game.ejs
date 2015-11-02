@@ -1,0 +1,150 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title><%= title %></title>
+	<link rel="stylesheet" href="/styles/game.css">
+	<script src="/javascript/socket.io.js"></script>
+	<script src="/javascript/socket.js"></script>
+	<script src="/javascript/jquery.js"></script>
+</head>
+<style>
+	body{
+		background-color: #303030;
+	}
+	#container{
+		width:30%;
+		display: block;
+		margin: 150px auto;
+		padding: 30px;
+		color:white;
+		box-shadow: 0px 0px 20px #101010;
+	}
+	#container h2{
+		font-family: arial;
+		text-transform: uppercase;
+	}
+	a {
+		color:#38daec;
+		text-decoration: none;
+	}
+	#createGame{
+		background-color: #fa4521;
+		display: block;
+		cursor: pointer;
+		width:100px;
+		text-align: center;
+		color:white;
+		font-family: arial;
+		padding: 5px;
+	}
+	.show{
+		display:initial;
+	}
+	.hide{
+		display:none;
+	}
+</style>
+<body>
+	<a href="#" id="logout">Logout</a>
+	<div id="container">
+		<div id="globalLobby">
+			<h2>Games</h2>
+			<ul id="lobbys"></ul>
+			<a href="#" id="createGame">Create Game</a>
+		</div>
+		<div id="lobbyMaster" class="hide">
+			<h2 id="lobbyName"></h2>
+			<ul id="lobbyUsers">
+			</ul>
+		</div>
+		<div id="gameLobby" class="hide">
+			<h2 id="lobbyName"></h2>
+			<ul id="lobbyUsers">
+			</ul>
+		</div>
+	</div>
+</body>
+
+<script>
+		if(sessionStorage.name === undefined){
+			location.replace("/");
+		} else {
+
+			var logout = document.getElementById('logout');
+			logout.onclick = function(){
+				delete sessionStorage.name;
+				location.replace("/");
+			}
+
+			var socket = new io();
+			
+			var createGame = document.getElementById('createGame');
+			createGame.onclick = function(){
+				socket.emit('lobbyInit', '');
+			}
+
+			socket.on('lobbyInit', function(d){
+				if(d === 'success'){
+					$(function(){
+						$('#globalLobby').hide();
+						$('#lobbyMaster').show();
+					});
+				} else if(d === 'error1'){
+					console.log('cant make moar games, delete one tho...');
+				}
+			});
+
+
+			socket.emit('login', sessionStorage.name);
+
+			socket.on('getLobbys', function(l){
+				var lobbys = JSON.parse(l);
+				var ul = document.getElementById('lobbys');
+				ul.innerHTML = '';
+				for(var i = 0; i < lobbys.length; i++){
+					var li = document.createElement("li");
+					li.innerHTML = ""+ lobbys[i].id +" "+ lobbys[i].name + " <a data-id=\""+lobbys[i].id+"\"class=\"join\" href=\"#\">JOIN</a>";
+					ul.appendChild(li);
+				}
+				var li = document.getElementsByClassName('join');
+				for(var i = 0; i < li.length; i++){
+					li[i].onclick = function(){
+						var id = this.getAttribute('data-id');
+						socket.emit('joinLobby', id);
+					}
+				}
+			});
+
+			socket.on('joinLobby', function(d){
+				if(d !== 'error1'){
+					var data = JSON.parse(d);
+					$(function(){
+						$('#globalLobby').hide();
+						$('#gameLobby').show();
+					});
+				} else {
+					console.log('your are already in lobby or you are master of one');
+				}
+			});
+
+			socket.on('lobbyDisconnect', function(){
+				$(function(){
+					$('#gameLobby').hide();
+					$('#globalLobby').show();
+				});
+			})
+
+			socket.on('disconnect', function(){
+				delete sessionStorage.name;
+				location.replace("/");
+			});
+
+			socket.emit('getLobbys');
+			var reloadLobbys = setInterval(function(){
+				socket.emit('getLobbys');
+			}, 1000);
+
+		}
+</script>
+</html>
